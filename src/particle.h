@@ -2,19 +2,17 @@
 #define FLUID_RENDERING_SRC_PARTICLE_H
 
 #include <vector>
-using namespace std;
 
 #include <eigen3/Eigen/Dense>
-using namespace Eigen;
 
 // Lagrangian particle
 class Particle
 {
 public:
-    Particle(Vector2d _x) : x(_x), v(0.0f, 0.0f), m(PARTICLE_MASS), p(0.0f), pv(0.0f), d(0.0f), dv(0.0f), n(NULL) {}
+    Particle(Eigen::Vector2d _x) : x(_x), v(0.0f, 0.0f), m(PARTICLE_MASS), p(0.0f), pv(0.0f), d(0.0f), dv(0.0f), n(NULL) {}
     // position, velocity, and mass
-    Vector2d x;
-    Vector2d v;
+    Eigen::Vector2d x;
+    Eigen::Vector2d v;
     double m;
     // pressure, density, and their variations
     double p;
@@ -31,8 +29,8 @@ struct Neighborhood
 {
 public:
     Neighborhood() : particles(MAX_NEIGHBORS), r(MAX_NEIGHBORS), numNeighbors(0) {}
-    vector<const Particle *> particles;
-    vector<double> r;
+    std::vector<const Particle *> particles;
+    std::vector<double> r;
     unsigned int numNeighbors;
 
     const static unsigned int MAX_NEIGHBORS = 64; // by grid definition

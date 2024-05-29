@@ -7,10 +7,10 @@
 
 #include <iostream>
 #include <vector>
-using namespace std;
 
 #include "particle.h"
-typedef Matrix<unsigned int, 2, 1> Vector2ui;
+
+typedef Eigen::Matrix<unsigned int, 2, 1> Vector2ui;
 
 // rendering projection parameters
 const static unsigned int WINDOW_WIDTH = 800;
@@ -21,8 +21,8 @@ const static double VIEW_HEIGHT = WINDOW_HEIGHT * VIEW_WIDTH / WINDOW_WIDTH;
 // global parameters
 const static unsigned int MAX_PARTICLES = 50 * 50;
 const static unsigned int fps = 40;
-const static Vector2d g(0.0f, -9.81f);
-static vector<Vector3d> boundaries = vector<Vector3d>();
+const static Eigen::Vector2d g(0.0f, -9.81f);
+static std::vector<Eigen::Vector3d> boundaries = std::vector<Eigen::Vector3d>();
 const static double EPS = 0.0000001f;
 const static double EPS2 = EPS * EPS;
 
@@ -43,40 +43,40 @@ const static double KERN_NORM = 30. / (2. * M_PI * H * H);
 
 // global memory allocation
 static unsigned int numParticles = MAX_PARTICLES;
-static vector<Particle> particles = vector<Particle>();
-static vector<Neighborhood> nh(numParticles);
-static vector<Vector2d> xlast(numParticles);
-static vector<Vector2d> xprojected(numParticles);
+static std::vector<Particle> particles = std::vector<Particle>();
+static std::vector<Neighborhood> nh(numParticles);
+static std::vector<Eigen::Vector2d> xlast(numParticles);
+static std::vector<Eigen::Vector2d> xprojected(numParticles);
 
-// gridding parameters
+// griding parameters
 static const double CELL_SIZE = H; // set to smoothing radius
 static const unsigned int GRID_WIDTH = (unsigned int)(VIEW_WIDTH / CELL_SIZE);
 static const unsigned int GRID_HEIGHT = (unsigned int)(VIEW_HEIGHT / CELL_SIZE);
 static const unsigned int NUM_CELLS = GRID_WIDTH * GRID_HEIGHT;
 
-// gridding memory allocation
-static vector<Particle *> grid(NUM_CELLS);
-static vector<Vector2i> gridIndices(MAX_PARTICLES);
+// griding memory allocation
+static std::vector<Particle*> grid(NUM_CELLS);
+static std::vector<Eigen::Vector2i> gridIndices(MAX_PARTICLES);
 
 void GridInsert(void);
 
 void InitSPH(void)
 {
-    boundaries.push_back(Vector3d(1, 0, 0));
-    boundaries.push_back(Vector3d(0, 1, 0));
-    boundaries.push_back(Vector3d(-1, 0, -VIEW_WIDTH));
-    boundaries.push_back(Vector3d(0, -1, -VIEW_HEIGHT));
+    boundaries.push_back(Eigen::Vector3d(1, 0, 0));
+    boundaries.push_back(Eigen::Vector3d(0, 1, 0));
+    boundaries.push_back(Eigen::Vector3d(-1, 0, -VIEW_WIDTH));
+    boundaries.push_back(Eigen::Vector3d(0, -1, -VIEW_HEIGHT));
 
-    cout << "grid width: " << GRID_WIDTH << endl;
-    cout << "grid height: " << GRID_HEIGHT << endl;
-    cout << "cell size: " << CELL_SIZE << endl;
-    cout << "num cells: " << NUM_CELLS << endl;
+    std::cout << "grid width: " << GRID_WIDTH << std::endl;
+    std::cout << "grid height: " << GRID_HEIGHT << std::endl;
+    std::cout << "cell size: " << CELL_SIZE << std::endl;
+    std::cout << "num cells: " << NUM_CELLS << std::endl;
 
-    Vector2d start(0.25f * VIEW_WIDTH, 0.95f * VIEW_HEIGHT);
+    Eigen::Vector2d start(0.25f * VIEW_WIDTH, 0.95f * VIEW_HEIGHT);
     double x0 = start(0);
     unsigned int num = sqrt(numParticles);
     double spacing = PARTICLE_RADIUS;
-    cout << "initializing with " << num << " particles per row for " << num * num << " overall" << endl;
+    std::cout << "initializing with " << num << " particles per row for " << num * num << " overall" << std::endl;
     for (unsigned int i = 0; i < num; i++)
     {
         for (unsigned int j = 0; j < num; j++)
@@ -87,7 +87,7 @@ void InitSPH(void)
         start(0) = x0;
         start(1) -= 2.0f * PARTICLE_RADIUS + spacing;
     }
-    cout << "inserted " << particles.size() << " particles" << endl;
+    std::cout << "inserted " << particles.size() << " particles" << std::endl;
 
     GridInsert();
 }
@@ -105,7 +105,7 @@ void GridInsert(void)
         yind = std::max(1U, std::min(GRID_HEIGHT - 2, yind));
         p.n = grid[xind + yind * GRID_WIDTH];
         grid[xind + yind * GRID_WIDTH] = &p;
-        gridIndices[i] = Vector2i(xind, yind);
+        gridIndices[i] = Eigen::Vector2i(xind, yind);
     }
 }
 
@@ -141,7 +141,7 @@ void PressureStep(void)
                 for (Particle *pgrid = grid[ii + jj]; pgrid != NULL; pgrid = pgrid->n)
                 {
                     const Particle &pj = *pgrid;
-                    Vector2d dx = pj.x - pi.x;
+                    Eigen::Vector2d dx = pj.x - pi.x;
                     double r2 = dx.squaredNorm();
                     if (r2 < EPS2 || r2 > H * H)
                         continue;
@@ -170,12 +170,12 @@ void Project(void)
     {
         auto &pi = particles[i];
 
-        Vector2d xx = pi.x;
+        Eigen::Vector2d xx = pi.x;
         for (unsigned int j = 0; j < nh[i].numNeighbors; j++)
         {
             const Particle &pj = *nh[i].particles[j];
             double r = nh[i].r[j];
-            Vector2d dx = pj.x - pi.x;
+            Eigen::Vector2d dx = pj.x - pi.x;
 
             double a = 1. - r / H;
             double d = DT2 * ((pi.pv + pj.pv) * a * a * a * KERN_NORM + (pi.p + pj.p) * a * a * KERN) / 2.;
@@ -189,7 +189,7 @@ void Project(void)
                 xx += (SURFACE_TENSION / pi.m) * pj.m * a * a * KERN * dx;
 
             // linear and quadratic visc
-            Vector2d dv = pi.v - pj.v;
+            Eigen::Vector2d dv = pi.v - pj.v;
             double u = dv.dot(dx);
             if (u > 0)
             {
@@ -251,7 +251,7 @@ void Render(void)
 void PrintPositions(void)
 {
     for (const auto &p : particles)
-        cout << p.x << endl;
+        std::cout << p.x << std::endl;
 }
 
 void Update(void)
