@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.22)
 # Find the OpenGL package
 find_package(OpenGL REQUIRED)
 if (UNIX)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -Wall -Wno-deprecated -pedantic -Wno-vla-extension -DNDEBUG")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -g -Wall -Wno-deprecated -pedantic -Wno-vla-extension -DNDEBUG")
     set(LDFLAGS "${LDFLAGS} -O3 -Wall -Wno-deprecated -Werror -pedantic -DNDEBUG")
 elseif (WIN32)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -Wall -Wno-deprecated -pedantic -Wno-vla-extension -I/usr/include/opengl -DNDEBUG")
