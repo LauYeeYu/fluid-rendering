@@ -67,6 +67,8 @@ vorti_epsilon = 0.01
 # -Gradient Approx. delta difference-
 g_del = 0.01
 
+camera = ti.Vector([10.0, -20.0, 10.0])
+fov = math.pi / 2
 # -----FIELDS-----
 position = ti.Vector.field(3, dtype=ti.f32, shape=num_particles)
 position_2d = ti.Vector.field(2, dtype=ti.f32, shape=num_particles)
@@ -328,11 +330,19 @@ def pbf_update():
         velocity[p] += xsph_sum
 
 
+@ti.func
+def calculate_perspective_position(v):
+    v1 = v - camera
+    tan_x = ti.math.atan2(v1[0], v1[1]) / fov * 2
+    tan_y = ti.math.atan2(v1[2], v1[1]) / fov * 2
+    return ti.Vector([tan_x + 0.5, tan_y + 0.5])
+
+
 @ti.kernel
 def generate_render_buffer():
     # convert 3D to 2D
     for i in position:
-        position_2d[i] = ti.Vector([position[i][0]/20, position[i][2]/20])
+        position_2d[i] = calculate_perspective_position(position[i])
 
 
 def pbf(ad, ws):
@@ -356,7 +366,7 @@ def init():
         vorticity[i] = ti.Vector([0.0, 0.0, 0.0])
 
 
-def render(gui):
+def render(gui: ti.GUI):
     gui.clear(background_color)
     render_position = position.to_numpy()
     render_position /= boundary
