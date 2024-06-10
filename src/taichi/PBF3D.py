@@ -69,6 +69,7 @@ g_del = 0.01
 
 # -----FIELDS-----
 position = ti.Vector.field(3, dtype=ti.f32, shape=num_particles)
+position_2d = ti.Vector.field(2, dtype=ti.f32, shape=num_particles)
 last_position = ti.Vector.field(3, dtype=ti.f32, shape=num_particles)
 velocity = ti.Vector.field(3, dtype=ti.f32, shape=num_particles)
 lambdas = ti.field(dtype=ti.f32, shape=num_particles)
@@ -326,6 +327,14 @@ def pbf_update():
         xsph_sum *= xsph_c
         velocity[p] += xsph_sum
 
+
+@ti.kernel
+def generate_render_buffer():
+    # convert 3D to 2D
+    for i in position:
+        position_2d[i] = ti.Vector([position[i][0]/20, position[i][2]/20])
+
+
 def pbf(ad, ws):
     pbf_prep()
     pbf_apply_force(ad, ws)
@@ -334,6 +343,7 @@ def pbf(ad, ws):
         pbf_solve()
     
     pbf_update()
+    generate_render_buffer()
 
 
 @ti.kernel
@@ -382,6 +392,7 @@ def main():
             writer.add_vertex_pos(np_pos[:, 0], np_pos[:, 1], np_pos[:, 2])
             writer.export_frame(frame_count, prefix)
         gui.clear(background_color)
+        gui.circles(position_2d.to_numpy(), radius=visual_radius, color=particle_color)
         gui.show()
         # ---Frame Control---
         if frame_count % 100 == 0:
