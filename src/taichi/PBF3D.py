@@ -22,6 +22,7 @@ background_color = 0xe9f5f3
 visual_radius = 0.5
 particle_color = 0x34ebc6
 fluid_color = ti.Vector([0.2, 0.4, 0.8])
+fluid_reflection_ratio = 1.5
 
 # -Fluid_Setting-
 num_particles = 12000
@@ -73,6 +74,12 @@ fov = math.pi / 2
 
 filter_radius = 10
 thickness_filter_radius = 10
+
+light_position = ti.Vector([0.0, 0.0, 1.0])
+light_angle = math.pi / 12
+light_color = ti.Vector([10.0, 10.0, 10.0])
+black = ti.Vector([0.0, 0.0, 0.0])
+camera_angle = ti.Vector([0.0, 1.0, 0.0])
 
 # -----FIELDS-----
 position = ti.Vector.field(3, dtype=ti.f32, shape=num_particles)
@@ -457,7 +464,7 @@ def calculate_normal_buffer(i, j):
     dx: ti.f32 = (filtered_depth_buffer[upper_x, j] - filtered_depth_buffer[lower_x, j]) / (upper_x - lower_x)
     dy: ti.f32 = (filtered_depth_buffer[i, upper_y] - filtered_depth_buffer[i, lower_y]) / (upper_y - lower_y)
     length_factor = 1.0 / res[0] * filtered_depth_buffer[i, j]
-    normal = ti.Vector([dx, 1.0 * length_factor, dy])
+    normal = ti.Vector([-dx, -1.0 * length_factor, -dy])
     return normal.normalized()
 
 
@@ -468,6 +475,45 @@ def calculate_attenuation(i, j):
         attenuation = ti.exp(-filtered_depth_buffer[i, j] / 20.0)
         color = color * (1 - attenuation) + fluid_color * attenuation
     return color
+
+
+@ti.func
+def mirror_vector(normal, vector):
+    vector_n = vector.normalized()
+    normal_n = normal.normalized()
+    return vector_n - 2.0 * normal.dot(vector) * normal_n
+
+
+@ti.func
+def angle(v1, v2):
+    return ti.acos(ti.abs(v1.normalized().dot(v2.normalized())))
+
+
+@ti.func
+def calculate_reflection(i, j):
+    color = light_color
+    if depth_buffer[i, j] < 100.0:
+        reflect_vector = mirror_vector(normal_buffer[i, j], camera_angle)
+        reflect_angle = angle(reflect_vector, camera_angle)
+        if reflect_angle > light_angle:
+            color = black
+    return ti.Vector([
+        ti.math.min(color[0], 1.0),
+        ti.math.min(color[1], 1.0),
+        ti.math.min(color[2], 1.0)])
+
+
+@ti.func
+def reflection_coefficient(theta):
+    r0 = (1.5 - 1.0) / (1.5 + 1.0)
+    r0 = r0 * r0
+    return r0 + (1.0 - r0) * ((1.0 - ti.cos(theta)) ** 5)
+
+
+@ti.func
+def calculate_color(i, j):
+    reflect = reflection_coefficient(angle(normal_buffer[i, j], camera_angle))
+    return calculate_reflection(i, j) * reflect + light_attenuation[i, j] * (1 - reflect)
 
 
 @ti.kernel
@@ -494,8 +540,7 @@ def generate_render_buffer():
     for i, j in light_attenuation:
         light_attenuation[i, j] = calculate_attenuation(i, j)
     for i, j in image:
-        value = thickness_for_display(filtered_thickness_buffer[i, j])
-        image[i, j] = light_attenuation[i, j]
+        image[i, j] = calculate_color(i, j)
 
 
 def pbf(ad, ws):
@@ -525,6 +570,14 @@ def render(gui: ti.GUI):
     render_position /= boundary
     gui.circles(render_position, radius=visual_radius, color=particle_color)
     gui.show()
+
+
+def parameter_init():
+    global light_angle
+    if TYPE == 1:
+        light_angle = ti.Vector([0.0, -1.0, 0.0])
+    elif TYPE == 2:
+        light_angle = ti.Vector([0.0, 0.0, -1.0])
 
 
 def main():
