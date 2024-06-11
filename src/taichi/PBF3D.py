@@ -573,14 +573,15 @@ def render(gui: ti.GUI):
 
 
 def parameter_init():
-    global light_angle
+    global light_position
     if TYPE == 1:
-        light_angle = ti.Vector([0.0, -1.0, 0.0])
+        light_position = ti.Vector([0.0, -1.0, 0.0])
     elif TYPE == 2:
-        light_angle = ti.Vector([0.0, 0.0, -1.0])
+        light_position = ti.Vector([0.0, 0.0, -1.0])
 
 
 def main():
+    parameter_init()
     init()
     # prefix = "./3d_ply/a.ply"
     # if not os.path.exists(os.path.dirname(prefix)):
