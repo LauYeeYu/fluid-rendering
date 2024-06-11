@@ -384,6 +384,16 @@ def add_point_to_thickness_buffer(screen_pos, r):
                 ti.atomic_add(thickness_buffer[i, j], thickness)
 
 
+@ti.func
+def depth_for_display(depth):
+    return depth / 100.0
+
+
+@ti.func
+def thickness_for_display(thickness):
+    return ti.exp(-thickness / 20.0)
+
+
 @ti.kernel
 def generate_render_buffer():
     # init buffers
