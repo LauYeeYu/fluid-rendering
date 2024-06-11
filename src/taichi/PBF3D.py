@@ -67,7 +67,7 @@ vorti_epsilon = 0.01
 # -Gradient Approx. delta difference-
 g_del = 0.01
 
-camera = ti.Vector([10.0, -30.0, 10.0])
+TYPE = 1
 fov = math.pi / 2
 
 depth_filter_radius = 10
@@ -342,9 +342,16 @@ def pbf_update():
 
 @ti.func
 def calculate_perspective_position(v):
-    v1 = v - camera
-    tan_x = ti.math.atan2(v1[0], v1[1]) / fov * 2
-    tan_y = ti.math.atan2(v1[2], v1[1]) / fov * 2
+    tan_x = 0.0
+    tan_y = 0.0
+    if TYPE == 1:
+        v1 = v - (10.0, 10.0, 50.0)
+        tan_x = ti.math.atan2(v1[0], -v1[2]) / fov * 2
+        tan_y = ti.math.atan2(v1[1], -v1[2]) / fov * 2
+    elif TYPE == 2:
+        v1 = v - (10.0, -30.0, 10.0)
+        tan_x = ti.math.atan2(v1[0], v1[1]) / fov * 2
+        tan_y = ti.math.atan2(v1[2], v1[1]) / fov * 2
     return ti.Vector([tan_x + 0.5, tan_y + 0.5])
 
 
@@ -355,6 +362,11 @@ def project_to_screen(v):
 
 @ti.func
 def calculate_distance(v):
+    camera = ti.Vector([0.0, 0.0, 0.0])
+    if TYPE == 1:
+        camera = ti.Vector([10.0, 10.0, 50.0])
+    elif TYPE == 2:
+        camera = ti.Vector([10.0, -30.0, 10.0])
     return (v - camera).norm()
 
 
@@ -404,6 +416,7 @@ def thickness_for_display(thickness):
 
 DISTANCE_COEFFICIENT = 2.0
 VALUE_FALLOFF_COEFFICIENT = 500.0
+
 
 @ti.func
 def calculate_filter_depth_buffer(i, j):
@@ -461,6 +474,7 @@ def generate_render_buffer():
     for i, j in normal_buffer:
         normal_buffer[i, j] = calculate_normal_buffer(i, j)
     for i, j in image:
+        value = thickness_for_display(thickness_buffer[i, j])
         image[i, j] = normal_buffer[i, j]
 
 
