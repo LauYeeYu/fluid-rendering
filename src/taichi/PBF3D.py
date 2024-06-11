@@ -21,6 +21,7 @@ dimension = 3
 background_color = 0xe9f5f3
 visual_radius = 0.5
 particle_color = 0x34ebc6
+fluid_color = ti.Vector([0.2, 0.4, 0.8])
 
 # -Fluid_Setting-
 num_particles = 12000
@@ -85,7 +86,7 @@ filtered_depth_buffer = ti.field(dtype=ti.f32, shape=res)
 normal_buffer = ti.Vector.field(3, dtype=ti.f32, shape=res)
 thickness_buffer = ti.field(dtype=ti.f32, shape=res)
 filtered_thickness_buffer = ti.field(dtype=ti.f32, shape=res)
-light_attenuation = ti.field(dtype=ti.f32, shape=res)
+light_attenuation = ti.Vector.field(3, dtype=ti.f32, shape=res)
 image = ti.Vector.field(3, dtype=ti.f32, shape=res)
 
 # Wacky check table for grid
@@ -460,6 +461,15 @@ def calculate_normal_buffer(i, j):
     return normal.normalized()
 
 
+@ti.func
+def calculate_attenuation(i, j):
+    color = ti.Vector([1.0, 1.0, 1.0])
+    if filtered_thickness_buffer[i, j] > 0.01:
+        attenuation = ti.exp(-filtered_depth_buffer[i, j] / 20.0)
+        color = color * (1 - attenuation) + fluid_color * attenuation
+    return color
+
+
 @ti.kernel
 def generate_render_buffer():
     # init buffers
@@ -481,9 +491,11 @@ def generate_render_buffer():
         normal_buffer[i, j] = calculate_normal_buffer(i, j)
     for i, j in filtered_thickness_buffer:
         filtered_thickness_buffer[i, j] = calculate_filter_buffer(thickness_buffer, i, j)
+    for i, j in light_attenuation:
+        light_attenuation[i, j] = calculate_attenuation(i, j)
     for i, j in image:
         value = thickness_for_display(filtered_thickness_buffer[i, j])
-        image[i, j] = ti.Vector([value, value, value])
+        image[i, j] = light_attenuation[i, j]
 
 
 def pbf(ad, ws):
