@@ -69,6 +69,10 @@ g_del = 0.01
 
 camera = ti.Vector([10.0, -30.0, 10.0])
 fov = math.pi / 2
+
+depth_filter_radius = 10
+thickness_filter_radius = 10
+
 # -----FIELDS-----
 position = ti.Vector.field(3, dtype=ti.f32, shape=num_particles)
 last_position = ti.Vector.field(3, dtype=ti.f32, shape=num_particles)
@@ -77,7 +81,11 @@ lambdas = ti.field(dtype=ti.f32, shape=num_particles)
 delta_qs = ti.Vector.field(3, dtype=ti.f32, shape=num_particles)
 vorticity = ti.Vector.field(3, dtype=ti.f32, shape=num_particles)
 depth_buffer = ti.field(dtype=ti.f32, shape=res)
+filtered_depth_buffer = ti.field(dtype=ti.f32, shape=res)
+normal_buffer = ti.Vector.field(3, dtype=ti.f32, shape=res)
 thickness_buffer = ti.field(dtype=ti.f32, shape=res)
+filtered_thickness_buffer = ti.field(dtype=ti.f32, shape=res)
+light_attenuation = ti.field(dtype=ti.f32, shape=res)
 image = ti.Vector.field(3, dtype=ti.f32, shape=res)
 
 # Wacky check table for grid
@@ -394,6 +402,31 @@ def thickness_for_display(thickness):
     return ti.exp(-thickness / 20.0)
 
 
+DISTANCE_COEFFICIENT = 2.0
+VALUE_FALLOFF_COEFFICIENT = 500.0
+
+@ti.func
+def calculate_filter_depth_buffer(i, j):
+    # use bilateral filter
+    # https://en.wikipedia.org/wiki/Bilateral_filter
+    upper_x = ti.math.min(i + depth_filter_radius, res[0] - 1)
+    lower_x = ti.math.max(i - depth_filter_radius, 0)
+    upper_y = ti.math.min(j + depth_filter_radius, res[1] - 1)
+    lower_y = ti.math.max(j - depth_filter_radius, 0)
+    sum_weight = 0.0
+    sum_depth = 0.0
+    for x in range(lower_x, upper_x):
+        for y in range(lower_y, upper_y):
+            distance_weight = ti.exp(-((x - i) * (x - i) + (y - j) * (y - j)) /
+                                     (DISTANCE_COEFFICIENT * depth_filter_radius * depth_filter_radius))
+            value_weight = ti.exp(-((depth_buffer[x, y] - depth_buffer[i, j]) *
+                                    (depth_buffer[x, y] - depth_buffer[i, j])) /
+                                  VALUE_FALLOFF_COEFFICIENT)
+            weight = distance_weight * value_weight
+            sum_weight += weight
+            sum_depth += weight * depth_buffer[x, y]
+    return sum_depth / sum_weight
+
 @ti.kernel
 def generate_render_buffer():
     # init buffers
@@ -409,9 +442,11 @@ def generate_render_buffer():
         screen_radius = perspective_radius(visual_radius, distance) * res[0]
         add_point_to_depth_buffer(screen_pos, screen_radius, distance)
         add_point_to_thickness_buffer(screen_pos, screen_radius)
+    for i, j in filtered_thickness_buffer:
+        filtered_thickness_buffer[i, j] = calculate_filter_depth_buffer(i, j)
     for i, j in image:
-        thickness = thickness_for_display(thickness_buffer[i, j])
-        image[i, j] = ti.Vector([thickness, thickness, thickness])
+        value = depth_for_display(filtered_thickness_buffer[i, j])
+        image[i, j] = ti.Vector([value, value, value])
 
 
 def pbf(ad, ws):
