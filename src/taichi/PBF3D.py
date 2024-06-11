@@ -35,14 +35,14 @@ h = 1.0
 h_2 = h * h
 h_6 = h * h * h * h * h * h
 h_9 = h * h * h * h * h * h * h * h * h
-max_neighbour = 4000
+max_neighbour = 8000
 
 # -Grid_Setting-
 grid_size = 1
 grid_rows = world[0] // grid_size
 grid_cols = world[1] // grid_size
 grid_layers = world[2] // grid_size
-max_particle_in_grid = 4000
+max_particle_in_grid = 8000
 
 # -Boundary Epsilon-
 b_epsilon = 0.01
