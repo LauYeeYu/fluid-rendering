@@ -368,11 +368,29 @@ def add_point_to_depth_buffer(screen_pos, r, distance):
                 depth_buffer[i, j] = ti.min(depth_buffer[i, j], distance)
 
 
+@ti.func
+def add_point_to_thickness_buffer(screen_pos, r):
+    r = int(r)
+    upper_x = ti.math.max(screen_pos[0] + r, res[0])
+    lower_x = ti.math.max(screen_pos[0] - r, 0)
+    upper_y = ti.math.max(screen_pos[1] + r, res[1])
+    lower_y = ti.math.max(screen_pos[1] - r, 0)
+    for i in range(lower_x, upper_x):
+        for j in range(lower_y, upper_y):
+            if (i - screen_pos[0]) * (i - screen_pos[0]) + (j - screen_pos[1]) * (j - screen_pos[1]) < r * r:
+                thickness: ti.f32 = 2.0 * ti.sqrt(r * r
+                                                  - (i - screen_pos[0]) * (i - screen_pos[0])
+                                                  - (j - screen_pos[1]) * (j - screen_pos[1]))
+                ti.atomic_add(thickness_buffer[i, j], thickness)
+
+
 @ti.kernel
 def generate_render_buffer():
     # init buffers
     for i, j in depth_buffer:
         depth_buffer[i, j] = 100.0
+    for i, j in thickness_buffer:
+        thickness_buffer[i, j] = 0.0
     # convert 3D to 2D
     for i in position:
         origin_pos = position[i]
@@ -380,9 +398,10 @@ def generate_render_buffer():
         distance = calculate_distance(origin_pos)
         screen_radius = perspective_radius(visual_radius, distance) * res[0]
         add_point_to_depth_buffer(screen_pos, screen_radius, distance)
+        add_point_to_thickness_buffer(screen_pos, screen_radius)
     for i, j in image:
-        brightness = depth_buffer[i, j] / 100.0
-        image[i, j] = ti.Vector([brightness, brightness, brightness])
+        thickness = ti.exp(-thickness_buffer[i, j] / 20.0)
+        image[i, j] = ti.Vector([thickness, thickness, thickness])
 
 
 def pbf(ad, ws):
