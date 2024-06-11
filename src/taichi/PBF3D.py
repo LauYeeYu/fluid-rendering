@@ -384,8 +384,13 @@ def add_point_to_depth_buffer(screen_pos, r, distance):
     lower_y = ti.math.max(screen_pos[1] - r, 0)
     for i in range(lower_x, upper_x):
         for j in range(lower_y, upper_y):
-            if (i - screen_pos[0]) * (i - screen_pos[0]) + (j - screen_pos[1]) * (j - screen_pos[1]) < r * r:
-                depth_buffer[i, j] = ti.min(depth_buffer[i, j], distance)
+            r1 = (i - screen_pos[0]) * (i - screen_pos[0]) + (j - screen_pos[1]) * (j - screen_pos[1])
+            if r1 < r * r:
+                thickness: ti.f32 = 2.0 * ti.math.sqrt(r * r
+                                                       - (i - screen_pos[0]) * (i - screen_pos[0])
+                                                       - (j - screen_pos[1]) * (j - screen_pos[1])) / r * visual_radius
+                depth = distance - thickness
+                depth_buffer[i, j] = ti.min(depth_buffer[i, j], depth)
 
 
 @ti.func
@@ -398,9 +403,9 @@ def add_point_to_thickness_buffer(screen_pos, r):
     for i in range(lower_x, upper_x):
         for j in range(lower_y, upper_y):
             if (i - screen_pos[0]) * (i - screen_pos[0]) + (j - screen_pos[1]) * (j - screen_pos[1]) < r * r:
-                thickness: ti.f32 = 2.0 * ti.sqrt(r * r
-                                                  - (i - screen_pos[0]) * (i - screen_pos[0])
-                                                  - (j - screen_pos[1]) * (j - screen_pos[1])) / r * visual_radius
+                thickness: ti.f32 = 2.0 * ti.math.sqrt(r * r
+                                                       - (i - screen_pos[0]) * (i - screen_pos[0])
+                                                       - (j - screen_pos[1]) * (j - screen_pos[1])) / r * visual_radius
                 ti.atomic_add(thickness_buffer[i, j], thickness)
 
 
@@ -448,9 +453,10 @@ def calculate_normal_buffer(i, j):
     lower_x = ti.math.max(i - 1, 0)
     upper_y = ti.math.min(j + 1, res[1] - 1)
     lower_y = ti.math.max(j - 1, 0)
-    dx = (depth_buffer[upper_x, j] - depth_buffer[lower_x, j]) / (upper_x - lower_x)
-    dy = depth_buffer[i, upper_y] - depth_buffer[i, lower_y] / (upper_y - lower_y)
-    normal = ti.Vector([dx, 1.0, dy])
+    dx: ti.f32 = (filtered_depth_buffer[upper_x, j] - filtered_depth_buffer[lower_x, j]) / (upper_x - lower_x)
+    dy: ti.f32 = (filtered_depth_buffer[i, upper_y] - filtered_depth_buffer[i, lower_y]) / (upper_y - lower_y)
+    length_factor = 1.0 / res[0] * filtered_depth_buffer[i, j]
+    normal = ti.Vector([dx, 1.0 * length_factor, dy])
     return normal.normalized()
 
 
@@ -469,12 +475,12 @@ def generate_render_buffer():
         screen_radius = perspective_radius(visual_radius, distance) * res[0]
         add_point_to_depth_buffer(screen_pos, screen_radius, distance)
         add_point_to_thickness_buffer(screen_pos, screen_radius)
-    for i, j in filtered_thickness_buffer:
-        filtered_thickness_buffer[i, j] = calculate_filter_depth_buffer(i, j)
+    for i, j in filtered_depth_buffer:
+        filtered_depth_buffer[i, j] = calculate_filter_depth_buffer(i, j)
     for i, j in normal_buffer:
         normal_buffer[i, j] = calculate_normal_buffer(i, j)
     for i, j in image:
-        value = thickness_for_display(thickness_buffer[i, j])
+        value = depth_for_display(depth_buffer[i, j])
         image[i, j] = normal_buffer[i, j]
 
 
