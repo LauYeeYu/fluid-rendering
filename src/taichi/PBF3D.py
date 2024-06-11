@@ -19,7 +19,7 @@ dimension = 3
 
 # -Visual-
 background_color = 0xe9f5f3
-visual_radius = 2.5
+visual_radius = 0.3
 particle_color = 0x34ebc6
 
 # -Fluid_Setting-
@@ -67,16 +67,18 @@ vorti_epsilon = 0.01
 # -Gradient Approx. delta difference-
 g_del = 0.01
 
-camera = ti.Vector([10.0, -20.0, 10.0])
+camera = ti.Vector([10.0, -30.0, 10.0])
 fov = math.pi / 2
 # -----FIELDS-----
 position = ti.Vector.field(3, dtype=ti.f32, shape=num_particles)
-position_2d = ti.Vector.field(2, dtype=ti.f32, shape=num_particles)
 last_position = ti.Vector.field(3, dtype=ti.f32, shape=num_particles)
 velocity = ti.Vector.field(3, dtype=ti.f32, shape=num_particles)
 lambdas = ti.field(dtype=ti.f32, shape=num_particles)
 delta_qs = ti.Vector.field(3, dtype=ti.f32, shape=num_particles)
 vorticity = ti.Vector.field(3, dtype=ti.f32, shape=num_particles)
+depth_buffer = ti.field(dtype=ti.f32, shape=res)
+thickness_buffer = ti.field(dtype=ti.f32, shape=res)
+image = ti.Vector.field(3, dtype=ti.f32, shape=res)
 
 # Wacky check table for grid
 num_particle_in_grid = ti.field(dtype=ti.i32, shape=(grid_rows, grid_cols, grid_layers))
@@ -338,11 +340,49 @@ def calculate_perspective_position(v):
     return ti.Vector([tan_x + 0.5, tan_y + 0.5])
 
 
+@ti.func
+def project_to_screen(v):
+    return ti.Vector([int(v[0] * res[0]), int(v[1] * res[1])])
+
+
+@ti.func
+def calculate_distance(v):
+    return (v - camera).norm()
+
+
+@ti.func
+def perspective_radius(r, d):
+    return r / d
+
+
+@ti.func
+def add_point_to_depth_buffer(screen_pos, r, distance):
+    r = int(r)
+    upper_x = ti.math.max(screen_pos[0] + r, res[0])
+    lower_x = ti.math.max(screen_pos[0] - r, 0)
+    upper_y = ti.math.max(screen_pos[1] + r, res[1])
+    lower_y = ti.math.max(screen_pos[1] - r, 0)
+    for i in range(lower_x, upper_x):
+        for j in range(lower_y, upper_y):
+            if (i - screen_pos[0]) * (i - screen_pos[0]) + (j - screen_pos[1]) * (j - screen_pos[1]) < r * r:
+                depth_buffer[i, j] = ti.min(depth_buffer[i, j], distance)
+
+
 @ti.kernel
 def generate_render_buffer():
+    # init buffers
+    for i, j in depth_buffer:
+        depth_buffer[i, j] = 100.0
     # convert 3D to 2D
     for i in position:
-        position_2d[i] = calculate_perspective_position(position[i])
+        origin_pos = position[i]
+        screen_pos = project_to_screen(calculate_perspective_position(origin_pos))
+        distance = calculate_distance(origin_pos)
+        screen_radius = perspective_radius(visual_radius, distance) * res[0]
+        add_point_to_depth_buffer(screen_pos, screen_radius, distance)
+    for i, j in image:
+        brightness = depth_buffer[i, j] / 100.0
+        image[i, j] = ti.Vector([brightness, brightness, brightness])
 
 
 def pbf(ad, ws):
@@ -401,8 +441,7 @@ def main():
             writer = ti.tools.PLYWriter(num_vertices=num_particles)
             writer.add_vertex_pos(np_pos[:, 0], np_pos[:, 1], np_pos[:, 2])
             writer.export_frame(frame_count, prefix)
-        gui.clear(background_color)
-        gui.circles(position_2d.to_numpy(), radius=visual_radius, color=particle_color)
+        gui.set_image(image)
         gui.show()
         # ---Frame Control---
         if frame_count % 100 == 0:
