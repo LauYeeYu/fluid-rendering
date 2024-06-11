@@ -394,7 +394,7 @@ def add_point_to_thickness_buffer(screen_pos, r):
 
 @ti.func
 def depth_for_display(depth):
-    return depth / 100.0
+    return (depth - 20.0) / 80.0
 
 
 @ti.func
@@ -426,6 +426,7 @@ def calculate_filter_depth_buffer(i, j):
             sum_weight += weight
             sum_depth += weight * depth_buffer[x, y]
     return sum_depth / sum_weight
+
 
 @ti.kernel
 def generate_render_buffer():
@@ -480,9 +481,9 @@ def render(gui: ti.GUI):
 
 def main():
     init()
-    prefix = "./3d_ply/a.ply"
-    if not os.path.exists(os.path.dirname(prefix)):
-        os.makedirs(os.path.dirname(prefix))
+    # prefix = "./3d_ply/a.ply"
+    # if not os.path.exists(os.path.dirname(prefix)):
+    #     os.makedirs(os.path.dirname(prefix))
     gui = ti.GUI('PBF3D', res)
     frame_count = 0
     while gui.running:
@@ -500,11 +501,11 @@ def main():
             ws = 1.0
         pbf(ad, ws)
         # ---Record 3D result---
-        if frame_count > -1:
-            np_pos = np.reshape(position.to_numpy(), (num_particles, 3))
-            writer = ti.tools.PLYWriter(num_vertices=num_particles)
-            writer.add_vertex_pos(np_pos[:, 0], np_pos[:, 1], np_pos[:, 2])
-            writer.export_frame(frame_count, prefix)
+        # if frame_count > -1:
+        #     np_pos = np.reshape(position.to_numpy(), (num_particles, 3))
+        #     writer = ti.tools.PLYWriter(num_vertices=num_particles)
+        #     writer.add_vertex_pos(np_pos[:, 0], np_pos[:, 1], np_pos[:, 2])
+        #     writer.export_frame(frame_count, prefix)
         gui.set_image(image)
         gui.show()
         # ---Frame Control---
