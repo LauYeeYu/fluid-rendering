@@ -19,7 +19,7 @@ dimension = 3
 
 # -Visual-
 background_color = 0xe9f5f3
-visual_radius = 0.3
+visual_radius = 0.5
 particle_color = 0x34ebc6
 
 # -Fluid_Setting-
@@ -371,16 +371,16 @@ def add_point_to_depth_buffer(screen_pos, r, distance):
 @ti.func
 def add_point_to_thickness_buffer(screen_pos, r):
     r = int(r)
-    upper_x = ti.math.max(screen_pos[0] + r, res[0])
+    upper_x = ti.math.max(screen_pos[0] + r, res[0] - 1)
     lower_x = ti.math.max(screen_pos[0] - r, 0)
-    upper_y = ti.math.max(screen_pos[1] + r, res[1])
+    upper_y = ti.math.max(screen_pos[1] + r, res[1] - 1)
     lower_y = ti.math.max(screen_pos[1] - r, 0)
     for i in range(lower_x, upper_x):
         for j in range(lower_y, upper_y):
             if (i - screen_pos[0]) * (i - screen_pos[0]) + (j - screen_pos[1]) * (j - screen_pos[1]) < r * r:
                 thickness: ti.f32 = 2.0 * ti.sqrt(r * r
                                                   - (i - screen_pos[0]) * (i - screen_pos[0])
-                                                  - (j - screen_pos[1]) * (j - screen_pos[1]))
+                                                  - (j - screen_pos[1]) * (j - screen_pos[1])) / r * visual_radius
                 ti.atomic_add(thickness_buffer[i, j], thickness)
 
 
@@ -410,7 +410,7 @@ def generate_render_buffer():
         add_point_to_depth_buffer(screen_pos, screen_radius, distance)
         add_point_to_thickness_buffer(screen_pos, screen_radius)
     for i, j in image:
-        thickness = ti.exp(-thickness_buffer[i, j] / 20.0)
+        thickness = thickness_for_display(thickness_buffer[i, j])
         image[i, j] = ti.Vector([thickness, thickness, thickness])
 
 
