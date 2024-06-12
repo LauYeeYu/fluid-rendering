@@ -44,6 +44,7 @@ grid_size = 1
 grid_rows = world[0] // grid_size
 grid_cols = world[1] // grid_size
 grid_layers = world[2] // grid_size
+num_grids = grid_rows * grid_cols * grid_layers
 max_particle_in_grid = 8000
 
 # -Boundary Epsilon-
@@ -69,7 +70,7 @@ vorti_epsilon = 0.01
 # -Gradient Approx. delta difference-
 g_del = 0.01
 
-TYPE = 1
+TYPE = 2
 fov = math.pi / 2
 
 filter_radius = 10
@@ -104,6 +105,13 @@ table_grid = ti.field(dtype=ti.i32, shape=(grid_rows, grid_cols, grid_layers, ma
 num_nb = ti.field(dtype=ti.i32, shape=num_particles)
 table_nb = ti.field(dtype=ti.i32, shape=(num_particles, max_neighbour))
 
+# LNM
+visualize_lnm = True
+grid_nb_cnt = ti.field(dtype=ti.i32, shape=num_grids)
+grid_l = ti.field(dtype=ti.i32, shape=num_grids)
+grid_n = ti.field(dtype=ti.i32, shape=num_grids)
+grid_nb = ti.field(dtype=ti.i32, shape=(num_grids, 27))
+particle_nb = ti.Vector.field(3, dtype=ti.i32, shape=num_particles)
 # --------------------FUNCTIONS--------------------
 
 
@@ -175,9 +183,9 @@ def boundary_condition(v):
 @ti.func
 def get_grid(cord):
     new_cord = boundary_condition(cord)
-    g_x = new_cord[0] // grid_size
-    g_y = new_cord[1] // grid_size
-    g_z = new_cord[2] // grid_size
+    g_x = int(new_cord[0] // grid_size)
+    g_y = int(new_cord[1] // grid_size)
+    g_z = int(new_cord[2] // grid_size)
     return g_x, g_y, g_z
 
 # --------------------KERNELS--------------------
@@ -218,12 +226,8 @@ def pbf_neighbour_search():
     # ---update grid---
     for p in position:
         pos = position[p]
-        p_grid_f32 = get_grid(pos)
+        p_grid = get_grid(pos)
         
-        p_grid = [0, 0, 0]
-        p_grid[0] = ti.cast(p_grid_f32[0], ti.i32)
-        p_grid[1] = ti.cast(p_grid_f32[1], ti.i32)
-        p_grid[2] = ti.cast(p_grid_f32[2], ti.i32)
         g_index = ti.atomic_add(num_particle_in_grid[p_grid[0], p_grid[1], p_grid[2]], 1)
         # ---ERROR CHECK---
         if g_index >= max_particle_in_grid:
@@ -547,7 +551,7 @@ def pbf(ad, ws):
     pbf_prep()
     pbf_apply_force(ad, ws)
     pbf_neighbour_search()
-    for i in range(solve_iteration):
+    for _ in range(solve_iteration):
         pbf_solve()
     
     pbf_update()
@@ -579,9 +583,76 @@ def parameter_init():
     elif TYPE == 2:
         light_position = ti.Vector([0.0, 0.0, -1.0])
 
+@ti.func
+def get_grid_idx(i, j, k):
+    return (i * grid_rows + j) * grid_cols + k
+
+@ti.kernel
+def lnm_init():
+    for i in range(grid_rows):
+        for j in range(grid_cols):
+            for k in range(grid_layers):
+                idx = get_grid_idx(i, j, k)
+                cnt = 0
+                for off_x in ti.static(range(-1, 2)):
+                    for off_y in ti.static(range(-1, 2)):
+                        for off_z in ti.static(range(-1, 2)):
+                            if 0 <= i + off_x < grid_cols:
+                                if 0 <= j + off_y < grid_rows:
+                                    if 0 <= k + off_z < grid_layers:
+                                        grid_nb[idx, cnt] = get_grid_idx(i + off_x, j + off_y, k + off_z)
+                                        cnt += 1
+                grid_nb_cnt[idx] = cnt
+
+@ti.kernel
+def lnm():
+    # https://github.com/felpzOliveira/Bubbles/blob/76f72b36bfdd3eabc9c43be62fba36997b197629/src/boundaries/lnm.h#L333
+    grid_l.fill(0)
+    grid_n.fill(0)
+    
+    for p in position:
+        pos = position[p]
+        p_grid = get_grid(pos)
+        particle_nb[p] = p
+        p_grid_idx = get_grid_idx(p_grid[0], p_grid[1], p_grid[2])
+        grid_n[p_grid_idx] += 1
+    
+    dim = 3
+    threshold = pow(3, dim)
+    particle_threshold = pow(2, dim)
+    for idx in grid_n:
+        if grid_n[idx] == 0:
+            continue
+        if grid_nb_cnt[idx] != threshold:
+            grid_l[idx] = 1
+        else:
+            for l in range(grid_nb_cnt[idx]):
+                nb_idx = grid_nb[idx, l]
+                if nb_idx != idx and grid_n[nb_idx] == 0:
+                    grid_l[idx] = 1
+                    break
+    
+    for idx in grid_n:
+        if grid_n[idx] == 0 or grid_l[idx] == 1:
+            continue
+        for l in range(grid_nb_cnt[idx]):
+            nb_idx = grid_nb[idx, l]
+            if nb_idx != idx and grid_l[nb_idx] == 1 and grid_n[nb_idx] < particle_threshold:
+                grid_l[idx] = 2
+                break
+    # if visualize_lnm:
+    #     for p in position:
+    #         pos = position[p]
+    #         p_grid = get_grid(pos)
+    #         p_grid_idx = get_grid_idx(p_grid[0], p_grid[1], p_grid[2])
+    #         if grid_l[p_grid_idx] == 1:
+                
+        
+    
 
 def main():
     parameter_init()
+    lnm_init()
     init()
     # prefix = "./3d_ply/a.ply"
     # if not os.path.exists(os.path.dirname(prefix)):
@@ -602,6 +673,8 @@ def main():
         elif gui.is_pressed('s'):
             ws = 1.0
         pbf(ad, ws)
+        # LNM algorithm 
+        lnm()
         # ---Record 3D result---
         # if frame_count > -1:
         #     np_pos = np.reshape(position.to_numpy(), (num_particles, 3))

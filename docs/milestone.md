@@ -11,6 +11,7 @@ implemented method:
 demo:
 
 - 2D PBF (openGL): 
+
   <img src="./assets/2d-opengl.gif" width="300" height="300">
 
 - 3D PBF (openGL): 
