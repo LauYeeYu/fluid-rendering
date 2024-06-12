@@ -111,7 +111,7 @@ grid_nb_cnt = ti.field(dtype=ti.i32, shape=num_grids)
 grid_l = ti.field(dtype=ti.i32, shape=num_grids)
 grid_n = ti.field(dtype=ti.i32, shape=num_grids)
 grid_nb = ti.field(dtype=ti.i32, shape=(num_grids, 27))
-particle_nb = ti.Vector.field(3, dtype=ti.i32, shape=num_particles)
+particle_grid = ti.field(dtype=ti.i32, shape=num_particles)
 # --------------------FUNCTIONS--------------------
 
 
@@ -530,6 +530,10 @@ def generate_render_buffer():
     # convert 3D to 2D
     for i in position:
         origin_pos = position[i]
+        if visualize_lnm:
+            grid_idx = particle_grid[i]
+            if grid_l[grid_idx] != 1:
+                continue
         screen_pos = project_to_screen(calculate_perspective_position(origin_pos))
         distance = calculate_distance(origin_pos)
         screen_radius = perspective_radius(visual_radius, distance) * res[0]
@@ -555,6 +559,8 @@ def pbf(ad, ws):
         pbf_solve()
     
     pbf_update()
+    # LNM algorithm 
+    lnm()
     generate_render_buffer()
 
 
@@ -568,12 +574,12 @@ def init():
         vorticity[i] = ti.Vector([0.0, 0.0, 0.0])
 
 
-def render(gui: ti.GUI):
-    gui.clear(background_color)
-    render_position = position.to_numpy()
-    render_position /= boundary
-    gui.circles(render_position, radius=visual_radius, color=particle_color)
-    gui.show()
+# def render(gui: ti.GUI):
+#     gui.clear(background_color)
+#     render_position = position.to_numpy()
+#     render_position /= boundary
+#     gui.circles(render_position, radius=visual_radius, color=particle_color)
+#     gui.show()
 
 
 def parameter_init():
@@ -613,8 +619,8 @@ def lnm():
     for p in position:
         pos = position[p]
         p_grid = get_grid(pos)
-        particle_nb[p] = p
         p_grid_idx = get_grid_idx(p_grid[0], p_grid[1], p_grid[2])
+        particle_grid[p] = p_grid_idx
         grid_n[p_grid_idx] += 1
     
     dim = 3
@@ -640,15 +646,6 @@ def lnm():
             if nb_idx != idx and grid_l[nb_idx] == 1 and grid_n[nb_idx] < particle_threshold:
                 grid_l[idx] = 2
                 break
-    # if visualize_lnm:
-    #     for p in position:
-    #         pos = position[p]
-    #         p_grid = get_grid(pos)
-    #         p_grid_idx = get_grid_idx(p_grid[0], p_grid[1], p_grid[2])
-    #         if grid_l[p_grid_idx] == 1:
-                
-        
-    
 
 def main():
     parameter_init()
@@ -673,8 +670,6 @@ def main():
         elif gui.is_pressed('s'):
             ws = 1.0
         pbf(ad, ws)
-        # LNM algorithm 
-        lnm()
         # ---Record 3D result---
         # if frame_count > -1:
         #     np_pos = np.reshape(position.to_numpy(), (num_particles, 3))
