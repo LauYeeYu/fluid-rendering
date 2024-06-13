@@ -5,9 +5,13 @@ import os
 
 ti.init(arch=ti.gpu)
 # ti.init(arch=ti.cpu)
-#ti.init(arch=ti.cpu, debug=True, cpu_max_num_threads=1, advanced_optimization=False) # debug
+# ti.init(arch=ti.cpu, debug=True, cpu_max_num_threads=1, advanced_optimization=False) # debug
 
 # -----PARAMETERS-----
+
+# If this is True, then the program will use some non-atomic operations, which may cause some problems
+# but will improve the performance a lot.
+unsafe = False
 
 # -WORLD-
 dt = 1.0 / 20.0
@@ -191,6 +195,7 @@ def get_grid(cord):
 
 # --------------------KERNELS--------------------
 # avoid nested for loop of position O(n^2)!
+
 
 @ti.kernel
 def pbf_prep():
@@ -401,7 +406,10 @@ def add_point_to_depth_buffer(screen_pos, r, distance):
             if r1 < r * r:
                 thickness: ti.f32 = 2.0 * ti.math.sqrt(r * r - r1) / r * visual_radius
                 depth = distance - thickness
-                ti.atomic_min(depth_buffer[i, j], depth)
+                if unsafe:
+                    depth_buffer[i, j] = ti.min(depth_buffer[i, j], depth)
+                else:
+                    ti.atomic_min(depth_buffer[i, j], depth)
 
 
 @ti.func
@@ -601,9 +609,11 @@ def parameter_init():
     elif TYPE == 2:
         light_position = ti.Vector([0.0, 0.0, -1.0])
 
+
 @ti.func
 def get_grid_idx(i, j, k):
     return (i * grid_rows + j) * grid_cols + k
+
 
 @ti.kernel
 def lnm_init():
@@ -621,6 +631,7 @@ def lnm_init():
                                         grid_nb[idx, cnt] = get_grid_idx(i + off_x, j + off_y, k + off_z)
                                         cnt += 1
                 grid_nb_cnt[idx] = cnt
+
 
 @ti.kernel
 def lnm():
