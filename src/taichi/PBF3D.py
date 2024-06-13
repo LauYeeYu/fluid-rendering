@@ -21,8 +21,9 @@ dimension = 3
 background_color = 0xe9f5f3
 visual_radius = 0.5
 particle_color = 0x34ebc6
-fluid_color = ti.Vector([0.2, 0.4, 0.8])
+fluid_filter_color = ti.Vector([1.0, 0.8, 0.1])
 fluid_reflection_ratio = 1.5
+fluid_attenuation_coefficient = 0.1
 
 # -Fluid_Setting-
 num_particles = 12000
@@ -78,7 +79,7 @@ thickness_filter_radius = 10
 
 light_position = ti.Vector([0.0, 0.0, 1.0])
 light_angle = math.pi / 12
-light_color = ti.Vector([10.0, 10.0, 10.0])
+light_color = ti.Vector([1.0, 1.0, 0.9])
 black = ti.Vector([0.0, 0.0, 0.0])
 camera_angle = ti.Vector([0.0, 1.0, 0.0])
 
@@ -227,7 +228,7 @@ def pbf_neighbour_search():
     for p in position:
         pos = position[p]
         p_grid = get_grid(pos)
-        
+
         g_index = ti.atomic_add(num_particle_in_grid[p_grid[0], p_grid[1], p_grid[2]], 1)
         # ---ERROR CHECK---
         if g_index >= max_particle_in_grid:
@@ -390,9 +391,9 @@ def perspective_radius(r, d):
 @ti.func
 def add_point_to_depth_buffer(screen_pos, r, distance):
     r = int(r)
-    upper_x = ti.math.max(screen_pos[0] + r, res[0])
+    upper_x = ti.math.max(screen_pos[0] + r, res[0] - 1)
     lower_x = ti.math.max(screen_pos[0] - r, 0)
-    upper_y = ti.math.max(screen_pos[1] + r, res[1])
+    upper_y = ti.math.max(screen_pos[1] + r, res[1] - 1)
     lower_y = ti.math.max(screen_pos[1] - r, 0)
     for i in range(lower_x, upper_x):
         for j in range(lower_y, upper_y):
@@ -476,8 +477,11 @@ def calculate_normal_buffer(i, j):
 def calculate_attenuation(i, j):
     color = ti.Vector([1.0, 1.0, 1.0])
     if filtered_thickness_buffer[i, j] > 0.01:
-        attenuation = ti.exp(-filtered_depth_buffer[i, j] / 20.0)
-        color = color * (1 - attenuation) + fluid_color * attenuation
+        color = ti.Vector([
+            color[0] * ti.exp(-filtered_thickness_buffer[i, j] * fluid_filter_color[0] * fluid_attenuation_coefficient),
+            color[1] * ti.exp(-filtered_thickness_buffer[i, j] * fluid_filter_color[1] * fluid_attenuation_coefficient),
+            color[2] * ti.exp(-filtered_thickness_buffer[i, j] * fluid_filter_color[2] * fluid_attenuation_coefficient),
+            ])
     return color
 
 
@@ -615,14 +619,14 @@ def lnm():
     # https://github.com/felpzOliveira/Bubbles/blob/76f72b36bfdd3eabc9c43be62fba36997b197629/src/boundaries/lnm.h#L333
     grid_l.fill(0)
     grid_n.fill(0)
-    
+
     for p in position:
         pos = position[p]
         p_grid = get_grid(pos)
         p_grid_idx = get_grid_idx(p_grid[0], p_grid[1], p_grid[2])
         particle_grid[p] = p_grid_idx
         grid_n[p_grid_idx] += 1
-    
+
     dim = 3
     threshold = pow(3, dim)
     particle_threshold = pow(2, dim)
@@ -637,7 +641,7 @@ def lnm():
                 if nb_idx != idx and grid_n[nb_idx] == 0:
                     grid_l[idx] = 1
                     break
-    
+
     for idx in grid_n:
         if grid_n[idx] == 0 or grid_l[idx] == 1:
             continue
