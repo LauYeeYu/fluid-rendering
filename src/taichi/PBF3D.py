@@ -18,7 +18,7 @@ boundary = 20
 dimension = 3
 
 # -Visual-
-background_color = 0xe9f5f3
+background_color = ti.Vector([0.5, 0.5, 0.5])
 visual_radius = 0.5
 particle_color = 0x34ebc6
 fluid_filter_color = ti.Vector([1.0, 0.8, 0.1])
@@ -80,7 +80,6 @@ thickness_filter_radius = 10
 light_position = ti.Vector([0.0, 0.0, 1.0])
 light_angle = math.pi / 12
 light_color = ti.Vector([1.0, 1.0, 0.9])
-black = ti.Vector([0.0, 0.0, 0.0])
 camera_angle = ti.Vector([0.0, 1.0, 0.0])
 
 # -----FIELDS-----
@@ -502,7 +501,7 @@ def calculate_reflection(i, j):
         reflect_vector = mirror_vector(normal_buffer[i, j], camera_angle)
         reflect_angle = angle(reflect_vector, camera_angle)
         if reflect_angle > light_angle:
-            color = black
+            color = background_color
     return ti.Vector([
         ti.math.min(color[0], 1.0),
         ti.math.min(color[1], 1.0),
