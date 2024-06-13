@@ -85,6 +85,7 @@ camera_angle = ti.Vector([0.0, 1.0, 0.0])
 
 # -----FIELDS-----
 position = ti.Vector.field(3, dtype=ti.f32, shape=num_particles)
+l1_points = ti.field(dtype=ti.i32, shape=num_particles)
 last_position = ti.Vector.field(3, dtype=ti.f32, shape=num_particles)
 velocity = ti.Vector.field(3, dtype=ti.f32, shape=num_particles)
 lambdas = ti.field(dtype=ti.f32, shape=num_particles)
@@ -401,7 +402,7 @@ def add_point_to_depth_buffer(screen_pos, r, distance):
             if r1 < r * r:
                 thickness: ti.f32 = 2.0 * ti.math.sqrt(r * r - r1) / r * visual_radius
                 depth = distance - thickness
-                depth_buffer[i, j] = ti.min(depth_buffer[i, j], depth)
+                ti.atomic_min(depth_buffer[i, j], depth)
 
 
 @ti.func
@@ -521,6 +522,16 @@ def calculate_color(i, j):
     return calculate_reflection(i, j) * reflect + light_attenuation[i, j] * (1 - reflect)
 
 
+@ti.func
+def add_particle_to_buffer(i):
+    origin_pos = position[i]
+    screen_pos = project_to_screen(calculate_perspective_position(origin_pos))
+    distance = calculate_distance(origin_pos)
+    screen_radius = perspective_radius(visual_radius, distance) * res[0]
+    add_point_to_depth_buffer(screen_pos, screen_radius, distance)
+    add_point_to_thickness_buffer(screen_pos, screen_radius)
+
+
 @ti.kernel
 def generate_render_buffer():
     # init buffers
@@ -528,18 +539,19 @@ def generate_render_buffer():
         depth_buffer[i, j] = 100.0
     for i, j in thickness_buffer:
         thickness_buffer[i, j] = 0.0
-    # convert 3D to 2D
-    for i in position:
-        origin_pos = position[i]
-        if visualize_lnm:
-            grid_idx = particle_grid[i]
-            if grid_l[grid_idx] != 1:
-                continue
-        screen_pos = project_to_screen(calculate_perspective_position(origin_pos))
-        distance = calculate_distance(origin_pos)
-        screen_radius = perspective_radius(visual_radius, distance) * res[0]
-        add_point_to_depth_buffer(screen_pos, screen_radius, distance)
-        add_point_to_thickness_buffer(screen_pos, screen_radius)
+    # make the l1_position
+    new_index = 0
+    if visualize_lnm:
+        for i in position:
+            if grid_l[particle_grid[i]] == 1:
+                index = ti.atomic_add(new_index, 1)
+                l1_points[index] = i
+    if visualize_lnm:
+        for i in range(new_index):
+            add_particle_to_buffer(l1_points[i])
+    else:
+        for i in position:
+            add_particle_to_buffer(i)
     for i, j in filtered_depth_buffer:
         filtered_depth_buffer[i, j] = calculate_filter_buffer(depth_buffer, i, j)
     for i, j in normal_buffer:
