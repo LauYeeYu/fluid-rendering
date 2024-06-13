@@ -399,9 +399,7 @@ def add_point_to_depth_buffer(screen_pos, r, distance):
         for j in range(lower_y, upper_y):
             r1 = (i - screen_pos[0]) * (i - screen_pos[0]) + (j - screen_pos[1]) * (j - screen_pos[1])
             if r1 < r * r:
-                thickness: ti.f32 = 2.0 * ti.math.sqrt(r * r
-                                                       - (i - screen_pos[0]) * (i - screen_pos[0])
-                                                       - (j - screen_pos[1]) * (j - screen_pos[1])) / r * visual_radius
+                thickness: ti.f32 = 2.0 * ti.math.sqrt(r * r - r1) / r * visual_radius
                 depth = distance - thickness
                 depth_buffer[i, j] = ti.min(depth_buffer[i, j], depth)
 
@@ -415,10 +413,9 @@ def add_point_to_thickness_buffer(screen_pos, r):
     lower_y = ti.math.max(screen_pos[1] - r, 0)
     for i in range(lower_x, upper_x):
         for j in range(lower_y, upper_y):
-            if (i - screen_pos[0]) * (i - screen_pos[0]) + (j - screen_pos[1]) * (j - screen_pos[1]) < r * r:
-                thickness: ti.f32 = 2.0 * ti.math.sqrt(r * r
-                                                       - (i - screen_pos[0]) * (i - screen_pos[0])
-                                                       - (j - screen_pos[1]) * (j - screen_pos[1])) / r * visual_radius
+            r1 = (i - screen_pos[0]) * (i - screen_pos[0]) + (j - screen_pos[1]) * (j - screen_pos[1])
+            if r1 < r * r:
+                thickness: ti.f32 = 2.0 * ti.math.sqrt(r * r - r1) / r * visual_radius
                 ti.atomic_add(thickness_buffer[i, j], thickness)
 
 
@@ -650,6 +647,7 @@ def lnm():
             if nb_idx != idx and grid_l[nb_idx] == 1 and grid_n[nb_idx] < particle_threshold:
                 grid_l[idx] = 2
                 break
+
 
 def main():
     parameter_init()
