@@ -542,7 +542,28 @@ def add_particle_to_buffer(i):
     distance = calculate_distance(origin_pos)
     screen_radius = perspective_radius(visual_radius, distance) * res[0]
     add_point_to_depth_buffer(screen_pos, screen_radius, distance)
-    add_point_to_thickness_buffer(screen_pos, screen_radius)
+    if not visualize_lnm:
+        add_point_to_thickness_buffer(screen_pos, screen_radius)
+
+
+@ti.func
+def add_grid_to_thickness_buffer(i, j, k):
+    effective_pos = grid_c[get_lnm_grid_idx(i, j, k)]
+    screen_pos = project_to_screen(calculate_perspective_position(effective_pos))
+    distance = calculate_distance(effective_pos)
+    grid_effective_radius = visual_radius * ti.sqrt(grid_n[get_lnm_grid_idx(i, j, k)])
+    screen_radius = perspective_radius(grid_effective_radius, distance) * res[0]
+    upper_x = ti.math.max(screen_pos[0] + int(screen_radius), res[0] - 1)
+    lower_x = ti.math.max(screen_pos[0] - int(screen_radius), 0)
+    upper_y = ti.math.max(screen_pos[1] + int(screen_radius), res[1] - 1)
+    lower_y = ti.math.max(screen_pos[1] - int(screen_radius), 0)
+    for m in range(lower_x, upper_x):
+        for n in range(lower_y, upper_y):
+            r1 = (m - screen_pos[0]) * (m - screen_pos[0]) + (n - screen_pos[1]) * (n - screen_pos[1])
+            if r1 < screen_radius * screen_radius:
+                thickness: ti.f32 = (2.0 * ti.math.sqrt(screen_radius * screen_radius - r1) /
+                                     grid_effective_radius * visual_radius)
+                ti.atomic_add(thickness_buffer[m, n], thickness)
 
 
 @ti.kernel
@@ -559,6 +580,11 @@ def generate_render_buffer():
             if grid_l[particle_grid[i]] == 1:
                 index = ti.atomic_add(new_index, 1)
                 l1_points[index] = i
+        for i in range(lnm_grid_rows):
+            for j in range(lnm_grid_cols):
+                for k in range(lnm_grid_layers):
+                    if grid_l[get_lnm_grid_idx(i, j, k)] >= 1:
+                        add_grid_to_thickness_buffer(i, j, k)
     if visualize_lnm:
         for i in range(new_index):
             add_particle_to_buffer(l1_points[i])
