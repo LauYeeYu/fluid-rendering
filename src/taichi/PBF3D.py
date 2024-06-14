@@ -542,7 +542,8 @@ def add_particle_to_buffer(i):
     distance = calculate_distance(origin_pos)
     screen_radius = perspective_radius(visual_radius, distance) * res[0]
     add_point_to_depth_buffer(screen_pos, screen_radius, distance)
-    add_point_to_thickness_buffer(screen_pos, screen_radius)
+    if not visualize_lnm:
+        add_point_to_thickness_buffer(screen_pos, screen_radius)
 
 
 @ti.kernel
@@ -562,6 +563,12 @@ def generate_render_buffer():
     if visualize_lnm:
         for i in range(new_index):
             add_particle_to_buffer(l1_points[i])
+        for i in position:
+            origin_pos = position[i]
+            screen_pos = project_to_screen(calculate_perspective_position(origin_pos))
+            distance = calculate_distance(origin_pos)
+            screen_radius = perspective_radius(visual_radius, distance) * res[0]
+            add_point_to_thickness_buffer(screen_pos, screen_radius)
     else:
         for i in position:
             add_particle_to_buffer(i)
@@ -585,8 +592,9 @@ def pbf(ad, ws):
         pbf_solve()
     
     pbf_update()
-    # LNM algorithm 
-    lnm()
+    if visualize_lnm:
+        # LNM algorithm
+        lnm()
     generate_render_buffer()
 
 
