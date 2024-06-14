@@ -401,11 +401,10 @@ def perspective_radius(r, d):
 
 @ti.func
 def add_point_to_depth_buffer(screen_pos, r, distance):
-    r = int(r)
-    upper_x = ti.math.max(screen_pos[0] + r, res[0] - 1)
-    lower_x = ti.math.max(screen_pos[0] - r, 0)
-    upper_y = ti.math.max(screen_pos[1] + r, res[1] - 1)
-    lower_y = ti.math.max(screen_pos[1] - r, 0)
+    upper_x = ti.math.max(screen_pos[0] + int(r), res[0] - 1)
+    lower_x = ti.math.max(screen_pos[0] - int(r), 0)
+    upper_y = ti.math.max(screen_pos[1] + int(r), res[1] - 1)
+    lower_y = ti.math.max(screen_pos[1] - int(r), 0)
     for i in range(lower_x, upper_x):
         for j in range(lower_y, upper_y):
             r1 = (i - screen_pos[0]) * (i - screen_pos[0]) + (j - screen_pos[1]) * (j - screen_pos[1])
@@ -420,11 +419,10 @@ def add_point_to_depth_buffer(screen_pos, r, distance):
 
 @ti.func
 def add_point_to_thickness_buffer(screen_pos, r):
-    r = int(r)
-    upper_x = ti.math.max(screen_pos[0] + r, res[0] - 1)
-    lower_x = ti.math.max(screen_pos[0] - r, 0)
-    upper_y = ti.math.max(screen_pos[1] + r, res[1] - 1)
-    lower_y = ti.math.max(screen_pos[1] - r, 0)
+    upper_x = ti.math.max(screen_pos[0] + int(r), res[0] - 1)
+    lower_x = ti.math.max(screen_pos[0] - int(r), 0)
+    upper_y = ti.math.max(screen_pos[1] + int(r), res[1] - 1)
+    lower_y = ti.math.max(screen_pos[1] - int(r), 0)
     for i in range(lower_x, upper_x):
         for j in range(lower_y, upper_y):
             r1 = (i - screen_pos[0]) * (i - screen_pos[0]) + (j - screen_pos[1]) * (j - screen_pos[1])
@@ -449,7 +447,7 @@ VALUE_FALLOFF_COEFFICIENT = 500.0
 
 @ti.func
 def calculate_filter_buffer(buffer, i, j):
-    # use bilateral filter
+    # ---Using bilateral filter---
     # https://en.wikipedia.org/wiki/Bilateral_filter
     upper_x = ti.math.min(i + filter_radius, res[0] - 1)
     lower_x = ti.math.max(i - filter_radius, 0)
@@ -472,7 +470,7 @@ def calculate_filter_buffer(buffer, i, j):
 
 @ti.func
 def calculate_normal_buffer(i, j):
-    # calculate normal buffer
+    # ---calculate normal buffer---
     upper_x = ti.math.min(i + 1, res[0] - 1)
     lower_x = ti.math.max(i - 1, 0)
     upper_y = ti.math.min(j + 1, res[1] - 1)
@@ -548,12 +546,12 @@ def add_particle_to_buffer(i):
 
 @ti.kernel
 def generate_render_buffer():
-    # init buffers
+    # ---init buffers---
     for i, j in depth_buffer:
         depth_buffer[i, j] = 100.0
     for i, j in thickness_buffer:
         thickness_buffer[i, j] = 0.0
-    # make the l1_position
+    # ---make the l1_position---
     new_index = 0
     if visualize_lnm:
         for i in position:
@@ -584,7 +582,7 @@ def generate_render_buffer():
         image[i, j] = calculate_color(i, j)
 
 
-def pbf(ad, ws):
+def simulation(ad, ws):
     pbf_prep()
     pbf_apply_force(ad, ws)
     pbf_neighbour_search()
@@ -593,7 +591,7 @@ def pbf(ad, ws):
     
     pbf_update()
     if visualize_lnm:
-        # LNM algorithm
+        # -LNM algorithm-
         lnm()
     generate_render_buffer()
 
@@ -721,7 +719,7 @@ def main():
             ws = -1.0
         elif gui.is_pressed('s'):
             ws = 1.0
-        pbf(ad, ws)
+        simulation(ad, ws)
         # ---Record 3D result---
         # if frame_count > -1:
         #     np_pos = np.reshape(position.to_numpy(), (num_particles, 3))
