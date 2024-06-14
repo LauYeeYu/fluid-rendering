@@ -3,8 +3,8 @@ import numpy as np
 import math
 import os
 
-ti.init(arch=ti.gpu)
-# ti.init(arch=ti.cpu)
+# ti.init(arch=ti.gpu)
+ti.init(arch=ti.cpu)
 # ti.init(arch=ti.cpu, debug=True, cpu_max_num_threads=1, advanced_optimization=False) # debug
 
 # -----PARAMETERS-----
@@ -46,11 +46,16 @@ max_neighbour = 8000
 
 # -Grid_Setting-
 grid_size = 1
-grid_rows = world[0] // grid_size
-grid_cols = world[1] // grid_size
-grid_layers = world[2] // grid_size
-num_grids = grid_rows * grid_cols * grid_layers
+grid_rows = int(world[0] / grid_size)
+grid_cols = int(world[1] / grid_size)
+grid_layers = int(world[2] / grid_size)
 max_particle_in_grid = 8000
+
+lnm_grid_size = 0.8
+lnm_grid_rows = int(world[0] / lnm_grid_size)
+lnm_grid_cols = int(world[1] / lnm_grid_size)
+lnm_grid_layers = int(world[2] / lnm_grid_size)
+num_grids = lnm_grid_rows * lnm_grid_cols * lnm_grid_layers
 
 # -Boundary Epsilon-
 b_epsilon = 0.01
@@ -188,9 +193,9 @@ def boundary_condition(v):
 @ti.func
 def get_grid(cord):
     new_cord = boundary_condition(cord)
-    g_x = int(new_cord[0] // grid_size)
-    g_y = int(new_cord[1] // grid_size)
-    g_z = int(new_cord[2] // grid_size)
+    g_x = int(new_cord[0] / grid_size)
+    g_y = int(new_cord[1] / grid_size)
+    g_z = int(new_cord[2] / grid_size)
     return g_x, g_y, g_z
 
 # --------------------KERNELS--------------------
@@ -611,24 +616,32 @@ def parameter_init():
 
 
 @ti.func
-def get_grid_idx(i, j, k):
-    return (i * grid_rows + j) * grid_cols + k
+def get_lnm_grid(cord):
+    new_cord = boundary_condition(cord)
+    g_x = int(new_cord[0] / lnm_grid_size)
+    g_y = int(new_cord[1] / lnm_grid_size)
+    g_z = int(new_cord[2] / lnm_grid_size)
+    return g_x, g_y, g_z
+
+@ti.func
+def get_lnm_grid_idx(i, j, k):
+    return (i * lnm_grid_rows + j) * lnm_grid_cols + k
 
 
 @ti.kernel
 def lnm_init():
-    for i in range(grid_rows):
-        for j in range(grid_cols):
-            for k in range(grid_layers):
-                idx = get_grid_idx(i, j, k)
+    for i in range(lnm_grid_rows):
+        for j in range(lnm_grid_cols):
+            for k in range(lnm_grid_layers):
+                idx = get_lnm_grid_idx(i, j, k)
                 cnt = 0
                 for off_x in ti.static(range(-1, 2)):
                     for off_y in ti.static(range(-1, 2)):
                         for off_z in ti.static(range(-1, 2)):
-                            if 0 <= i + off_x < grid_cols:
-                                if 0 <= j + off_y < grid_rows:
-                                    if 0 <= k + off_z < grid_layers:
-                                        grid_nb[idx, cnt] = get_grid_idx(i + off_x, j + off_y, k + off_z)
+                            if 0 <= i + off_x < lnm_grid_cols:
+                                if 0 <= j + off_y < lnm_grid_rows:
+                                    if 0 <= k + off_z < lnm_grid_layers:
+                                        grid_nb[idx, cnt] = get_lnm_grid_idx(i + off_x, j + off_y, k + off_z)
                                         cnt += 1
                 grid_nb_cnt[idx] = cnt
 
@@ -641,8 +654,8 @@ def lnm():
 
     for p in position:
         pos = position[p]
-        p_grid = get_grid(pos)
-        p_grid_idx = get_grid_idx(p_grid[0], p_grid[1], p_grid[2])
+        p_grid = get_lnm_grid(pos)
+        p_grid_idx = get_lnm_grid_idx(p_grid[0], p_grid[1], p_grid[2])
         particle_grid[p] = p_grid_idx
         grid_n[p_grid_idx] += 1
 
@@ -660,7 +673,9 @@ def lnm():
                 if nb_idx != idx and grid_n[nb_idx] == 0:
                     grid_l[idx] = 1
                     break
-
+    # for idx in grid_n:
+    #     print(grid_l[idx])
+    # print("=====")
     for idx in grid_n:
         if grid_n[idx] == 0 or grid_l[idx] == 1:
             continue
@@ -669,6 +684,17 @@ def lnm():
             if nb_idx != idx and grid_l[nb_idx] == 1 and grid_n[nb_idx] < particle_threshold:
                 grid_l[idx] = 2
                 break
+    _cnt2 = 0
+    _cnt1 = 0
+    _cnt0 = 0
+    for idx in grid_n:
+        if grid_l[idx] == 0:
+            _cnt0 += 1
+        if grid_l[idx] == 2:
+            _cnt2 += 1
+        if grid_l[idx] == 1:
+            _cnt1 += 1
+    print(_cnt0, _cnt1, _cnt2)
 
 
 def main():
