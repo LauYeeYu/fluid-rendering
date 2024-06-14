@@ -3,8 +3,8 @@ import numpy as np
 import math
 import os
 
-# ti.init(arch=ti.gpu)
-ti.init(arch=ti.cpu)
+ti.init(arch=ti.gpu)
+# ti.init(arch=ti.cpu)
 # ti.init(arch=ti.cpu, debug=True, cpu_max_num_threads=1, advanced_optimization=False) # debug
 
 # -----PARAMETERS-----
@@ -51,7 +51,7 @@ grid_cols = int(world[1] / grid_size)
 grid_layers = int(world[2] / grid_size)
 max_particle_in_grid = 8000
 
-lnm_grid_size = 0.8
+lnm_grid_size = 1
 lnm_grid_rows = int(world[0] / lnm_grid_size)
 lnm_grid_cols = int(world[1] / lnm_grid_size)
 lnm_grid_layers = int(world[2] / lnm_grid_size)
@@ -120,6 +120,7 @@ visualize_lnm = True
 grid_nb_cnt = ti.field(dtype=ti.i32, shape=num_grids)
 grid_l = ti.field(dtype=ti.i32, shape=num_grids)
 grid_n = ti.field(dtype=ti.i32, shape=num_grids)
+grid_c = ti.Vector.field(3, dtype=ti.f32, shape=num_grids) # grid's centorid
 grid_nb = ti.field(dtype=ti.i32, shape=(num_grids, 27))
 particle_grid = ti.field(dtype=ti.i32, shape=num_particles)
 # --------------------FUNCTIONS--------------------
@@ -651,14 +652,21 @@ def lnm():
     # https://github.com/felpzOliveira/Bubbles/blob/76f72b36bfdd3eabc9c43be62fba36997b197629/src/boundaries/lnm.h#L333
     grid_l.fill(0)
     grid_n.fill(0)
-
+    grid_c.fill(0)
+    
     for p in position:
         pos = position[p]
         p_grid = get_lnm_grid(pos)
         p_grid_idx = get_lnm_grid_idx(p_grid[0], p_grid[1], p_grid[2])
         particle_grid[p] = p_grid_idx
         grid_n[p_grid_idx] += 1
-
+        grid_c[p_grid_idx] += pos
+        
+    for idx in grid_n:
+        if grid_n[idx] == 0:
+            continue
+        grid_c[idx] /= grid_n[idx]
+        
     dim = 3
     threshold = pow(3, dim)
     particle_threshold = pow(2, dim)
@@ -673,9 +681,6 @@ def lnm():
                 if nb_idx != idx and grid_n[nb_idx] == 0:
                     grid_l[idx] = 1
                     break
-    # for idx in grid_n:
-    #     print(grid_l[idx])
-    # print("=====")
     for idx in grid_n:
         if grid_n[idx] == 0 or grid_l[idx] == 1:
             continue
@@ -684,17 +689,6 @@ def lnm():
             if nb_idx != idx and grid_l[nb_idx] == 1 and grid_n[nb_idx] < particle_threshold:
                 grid_l[idx] = 2
                 break
-    _cnt2 = 0
-    _cnt1 = 0
-    _cnt0 = 0
-    for idx in grid_n:
-        if grid_l[idx] == 0:
-            _cnt0 += 1
-        if grid_l[idx] == 2:
-            _cnt2 += 1
-        if grid_l[idx] == 1:
-            _cnt1 += 1
-    print(_cnt0, _cnt1, _cnt2)
 
 
 def main():
