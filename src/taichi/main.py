@@ -701,9 +701,6 @@ def main():
     parameter_init()
     lnm_init()
     init()
-    # prefix = "./3d_ply/a.ply"
-    # if not os.path.exists(os.path.dirname(prefix)):
-    #     os.makedirs(os.path.dirname(prefix))
     gui = ti.GUI('Fluid', res)
     frame_count = 0
     while gui.running:
@@ -720,12 +717,6 @@ def main():
         elif gui.is_pressed('s'):
             ws = 1.0
         simulation(ad, ws)
-        # ---Record 3D result---
-        # if frame_count > -1:
-        #     np_pos = np.reshape(position.to_numpy(), (num_particles, 3))
-        #     writer = ti.tools.PLYWriter(num_vertices=num_particles)
-        #     writer.add_vertex_pos(np_pos[:, 0], np_pos[:, 1], np_pos[:, 2])
-        #     writer.export_frame(frame_count, prefix)
         gui.set_image(image)
         gui.show()
         # ---Frame Control---
