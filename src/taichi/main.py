@@ -11,7 +11,7 @@ ti.init(arch=ti.gpu)
 
 # If this is True, then the program will use some non-atomic operations, which may cause some problems
 # but will improve the performance a lot.
-unsafe = False
+unsafe = True
 
 # -WORLD-
 dt = 1.0 / 20.0
@@ -704,7 +704,7 @@ def main():
     # prefix = "./3d_ply/a.ply"
     # if not os.path.exists(os.path.dirname(prefix)):
     #     os.makedirs(os.path.dirname(prefix))
-    gui = ti.GUI('PBF3D', res)
+    gui = ti.GUI('Fluid', res)
     frame_count = 0
     while gui.running:
         # ---Control Waves---
@@ -729,8 +729,6 @@ def main():
         gui.set_image(image)
         gui.show()
         # ---Frame Control---
-        if frame_count % 100 == 0:
-            print("Frame:".format(frame_count))
         frame_count += 1
     return 0
 
