@@ -297,7 +297,7 @@ Based on the pipeline described in Sec.~\ref{fluid-simulation}, we show the code
 the density constraint $C_i$ on the $i$-th particle is defined using an equation of state: 
  \begin{equation}
      C_{i}(\mathbf{p}_{1},...,\mathbf{p}_{n})=\frac{\rho_{i}}{\rho_{0}}-1, \\
-     \lambda_{i}=-\frac{C_{i}(\mathbf{p}_{1},...,\mathbf{p}_{n})}{\sum_{k}\left|\nabla_{{\mathbf{p}_{k}}}C_{i}\right|^{2}}
+     \lambda_{i}=-\frac{C_{i}(\mathbf{p}_{1},...,\mathbf{p}_{n})}{\sum_{k}\left|\nabla_{{\mathbf{p}_{k}}}C_{i}\right|^{2}}.
  \end{equation}
  
 Note that we split the 3D space into grids in order to accelerate the process of finding particles' neighbors and used SDF (signed distance field) for boundary detection.
@@ -342,9 +342,9 @@ Layered Neighborhood Method (LNM)~\cite{oliveira2022narrow} is the method used t
 \end{itemize}
 Define the distance of two voxels as:
 \begin{equation}
-\operatorname{dist}(V_i,V_j)=\min\{k\in\mathbb{N}\mid V_i\in\mathcal{N}_k(V_j)\}
+\operatorname{dist}(V_i,V_j)=\min\{k\in\mathbb{N}\mid V_i\in\mathcal{N}_k(V_j)\}.
 \end{equation}
-Note the set of empty voxels as $\mathcal{E}_h$ and level-set $\mathcal L_k:=\{V:\ell_i(V)=k\}$, where $\ell(V_i)=\begin{cases}\min_{E\in\mathcal{E}_h}\left\{\operatorname{dist}(V_i,E)\right\},&\text{if }V_i\text{ is not border}\\1,&\text{otherwise}\end{cases}.$ The pseudocode is described in Alg.~\ref{alg:lnm}, here we only consider $\mathcal L_1$ particles.
+Note the set of empty voxels as $\mathcal{E}_h$ and level-set $\mathcal L_k:=\{V:\ell_i(V)=k\}$, where $\ell(V_i)=\begin{cases}\min_{E\in\mathcal{E}_h}\left\{\operatorname{dist}(V_i,E)\right\},&\text{if }V_i\text{ is not border;}\\1,&\text{otherwise.}\end{cases}.$ The pseudocode is described in Alg.~\ref{alg:lnm}, here we only consider $\mathcal L_1$ particles.
 
 \begin{algorithm}
 \caption{Layered Neighborhood Method (LNM)}
@@ -506,6 +506,23 @@ We sincerely thank Prof. Yang for his invaluable guidance and to TA Shulin Hong 
 %% If your work has an appendix, this is the place to put it.
 \appendix
 
+\section{Contributions of each Author}
+The work includes the following tasks:
+\begin{enumerate}
+  \item [Task 1.] PBF fluid simulation.
+  \item [Task 2.] Basic screen-space fluid rendering.
+  \item [Task 3.] LNM.
+  \begin{enumerate}
+    \item [Task 3.1.] LNM algorithm implement.
+    \item [Task 3.2.] LNM's follow-up rendering.
+  \end{enumerate}
+\end{enumerate}
+
+The contribution is listed below:
+\begin{itemize}
+  \item Quanquan Peng (50\%): Task 1 \& Task 3.1.
+  \item Yiyu Liu (50\%): Task 2 \& Task 3.2.
+\end{itemize}
 
 \end{document}
 \endinput
