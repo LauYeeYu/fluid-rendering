@@ -178,24 +178,24 @@
 \maketitle
 
 \section{Introduction}
-Simulating fluid is by no means easy --- fluid are continuous while computers are only good at discrete things.
+Simulating fluid is by no means easy --- fluids are continuous while computers are only good at discrete things.
 Generally, we use Naiver-Stokes Equation~\cite{navier1838navier} to describe fluid.
 However, the way of representing fluid is a great problem that remains to be solved.
 There are basically two kinds of approaches to represent fluid --- \textit{grid-based}~\cite{harlow1965numerical, foster2001practical} and \textit{particle-based}~\cite{monaghan1992smoothed, muller2003particle, antoci2007numerical, solenthaler2009predictive, macklin2013position}.
 The former one uses girds with attributes of density and velocity that represent all the particles in the square or cube, while the latter one uses particles as elements in free-surface flow simulations.
 \textit{Grid-based} simulation is better in terms of simulation speed but results in bad fidelity.
-We will go into details in related works section.
-In our work, we adopts \textit{particle-based} simulation to better represent the physical property of fluid.
+We will go into detail in the related works section.
+In our work, we adopt \textit{particle-based} simulation to better represent the physical property of fluid.
 
 As for the rendering methodology, there are roughly three types of rendering methods -- \textit{mesh-based}~\cite{solenthaler2007unified, adams2007adaptively}, \textit{ray-casting}~\cite{fraedrich2010efficient, zirr2015memory} and \textit{screen-based}~\cite{cords2009interactive, bagar2010layered, oliveira2022narrow}, each of which has its pros and cons. In brief, \textit{mesh-based} methods require high-resolution grid and turn out to be computationally expensive; \textit{ray-casting} methods also require enormous computational power; \textit{screen-based} methods is easier for computation but may emit some details. We will discuss about the details later. We adopts \textit{screen-based} method to ensure better rendering speed.
 
-In our work, we design and implement a complete simulation and rendering pipeline for fluid. We leverage the computational power by means of parallelization with Taichi framework~\cite{hu2019taichi, hu2019difftaichi, hu2021quantaichi}. With PBF, screen-based method and Layered Neighborhood Method optimization, we can achieve about 30 FPS with CUDA on a commercial laptop (RTX 3060 Laptop). To our knowledge, this maybe one of the few (or even the first) open-sourced and light-weighted full-stack fluid simulation and rendering pipeline which supports GPU. Our source code is publicly available at \url{https://github.com/LauYeeYu/fluid-rendering/}.
+In our work, we design and implement a complete simulation and rendering pipeline for fluid. We leverage the computational power by means of parallelization with Taichi framework~\cite{hu2019taichi, hu2019difftaichi, hu2021quantaichi}. With PBF, screen-based method, and Layered Neighborhood Method optimization, we can achieve about 30 FPS with CUDA on a commercial laptop (RTX 3060 Laptop). To our knowledge, this may be one of the few (or even the first) open-sourced and lightweight full-stack fluid simulation and rendering pipeline which supports GPU. Our source code is publicly available at \url{https://github.com/LauYeeYu/fluid-rendering/}.
 
 \section{Related Works}
 \subsection{Fluid Simulation methods}
 We can generally divide the methodology in fluid simulation into two types --- \textit{grid-based} and \textit{particle-based} methods.
 
-\textbf{Grid-based Methods.} In grid-based methods, every grid has its own attributes to represent the average property of all fluid in that grid~\cite{harlow1965numerical, foster2001practical}. Fluid is simulated in the view of flow field. The scale of the grid number largely limits accuracy of simulation. Generally, the grid number is less than the particle number in particle-based methods, so grid-based methods are faster in simulation speed but worse in fidelity.
+\textbf{Grid-based Methods.} In grid-based methods, every grid has its own attributes to represent the average property of all fluid in that grid~\cite{harlow1965numerical, foster2001practical}. Fluid is simulated in the view of flow field. The scale of the grid number largely limits the accuracy of simulation. Generally, the grid number is less than the particle number in particle-based methods, so grid-based methods are faster in simulation speed but worse in fidelity.
 
 \textbf{Particle-based methods.} Fluid is regarded as a collection of particles in particle-based methods, where simulation is achieved by calculating the force on each particle and simulating its movement. Smoothed Particle Hydrodynamics (SPH)~\cite{monaghan1992smoothed} is a well-established technique, celebrated for its mass conservation and adaptability in dynamic environments such as video games. Despite its advantages, SPH is susceptible to density fluctuations and the computational cost of enforcing incompressibility due to its unstructured nature. Advancements like Predictive-corrective Incompressible SPH (PCISPH)~\cite{solenthaler2009predictive} have enhanced real-time application feasibility by using iterative methods for gradual pressure convergence, allowing for larger time steps. Building on this, our work utilizes the Position Based Fluids (PBF)~\cite{macklin2013position} method, which integrates a position-based dynamics framework to address these challenges. PBF uses an iterative density solver to enforce constant density through positional constraints, combining the benefits of SPH incompressibility with the stability and efficiency of position-based methods, thereby enhancing the realism and performance of fluid simulations in real-time applications.
 
@@ -208,7 +208,7 @@ can use isotropic kernels~\cite{solenthaler2007unified} or adaptive size kernels
 \textbf{Ray-casting Methods.} In ray-casting methods, the liquid surface is rendered by employing a GPU-based volume ray-casting of a scalar field defined from the fluid particles. \citet{fraedrich2010efficient} proposed an SPH particle rendering using an adaptive discretization of the view volume performing ray-casting in a perspective grid. With compression on the perspective grid by grouping the voxels, the memory consumption can be reduced~\cite{zirr2015memory}. However, although ray-casting methods allow interactive rendering, these techniques are unable to be applied on
 real-time applications.
 
-\textbf{Screen-space Methods.} These methods only cares about the frontmost surface and the distance of light in fluid, which affect the result of render most. In these methods, a scene is calculated into a depth buffer and a thickness buffer with perspective projection. After smoothened, these two buffers are converted into normal buffer and light attenuation value respectively. Traditional screen-space methods~\cite{cords2009interactive, bagar2010layered} rely on smoothing a depth buffer generated from particle data to create the visual representation of a fluid surface. These techniques, while effective in certain contexts, often require extensive computation, especially when using large convolution kernels or multiple filter passes, which can degrade performance significantly. A novel approach presented by Oliveira and Paiva~\cite{oliveira2022narrow} introduces a layered neighborhood method that significantly enhances performance by selectively processing only particles within a narrow band around the fluid's surface. This method not only reduces the computational load but also addresses speed deficiencies inherent in previous techniques that did not employ such an optimization. By focusing on boundary particles and effectively managing particle layers, the layered neighborhood method enables faster rendering times and reduces memory consumption, making it a robust solution for real-time fluid visualization in screen-space rendering frameworks.
+\textbf{Screen-space Methods.} These methods only care about the frontmost surface and the distance of light in fluid, which affect the result of render most. In these methods, a scene is calculated into a depth buffer and a thickness buffer with perspective projection. After smoothened, these two buffers are converted into normal buffer and light attenuation value respectively. Traditional screen-space methods~\cite{cords2009interactive, bagar2010layered} rely on smoothing a depth buffer generated from particle data to create the visual representation of a fluid surface. These techniques, while effective in certain contexts, often require extensive computation, especially when using large convolution kernels or multiple filter passes, which can degrade performance significantly. A novel approach presented by Oliveira and Paiva~\cite{oliveira2022narrow} introduces a layered neighborhood method that significantly enhances performance by selectively processing only particles within a narrow band around the fluid's surface. This method not only reduces the computational load but also addresses speed deficiencies inherent in previous techniques that did not employ such an optimization. By focusing on boundary particles and effectively managing particle layers, the layered neighborhood method enables faster rendering times and reduces memory consumption, making it a robust solution for real-time fluid visualization in screen-space rendering frameworks.
 
 \section{Simulation and Rendering Pipeline Design}
 
@@ -236,7 +236,7 @@ Since the particle positions are calculated in previous steps, we directly use t
 \subsubsection{The Layer of each Particle}
 Different from solid, fluid will gather together if are very close to each other. In this case, although the number of particles are large, only the outer particles are important for the shape of the fluid. As long as we know the shape of surface, we are able to restore almost every detail of the fluid accurately.
 
-Then the question is, how to tell the outer particles from the inner particles? Since it is hard to exactly pick the nearby particles effeciently, we can divide the space into voxels and consider the voxels instead. The voxels that are likely to carry outer particles are considered as layer-1~\cite{oliveira2022narrow}. Notice that a voxel is layer-1 only when
+Then the question is, how to tell the outer particles from the inner particles? Since it is hard to exactly pick the nearby particles efficiently, we can divide the space into voxels and consider the voxels instead. The voxels that are likely to carry outer particles are considered as layer-1~\cite{oliveira2022narrow}. Notice that a voxel is layer-1 only when
 \begin{enumerate}
 \item it is on the boundary of the space;
 \item it has at least one neighbor voxel without particles.
@@ -249,15 +249,15 @@ For layer-2 voxel, a voxel is regarded as layer-2 if and only if
 \item it has at least on neighbor layer-1 voxel.
 \end{enumerate}
 
-Voxels with higher layer can be calculated similarly.
+Voxels with higher layers can be calculated similarly.
 
 \subsubsection{Depth buffer}
-With the preprocessed layer information, we can identify all the particles that are in layer-1 voxels. With these selected particles, we are able to generate the depth buffer since the frontmost particles must be the outer particles. We can simply map the particles to the place on the screen with perspective projection, and set the depth if the distance from the particle to the camera is less than the current value.
+With the preprocessed layer information, we can identify all the particles that are in layer-1 voxels. With these selected particles, we are able to generate the depth buffer since the frontmost particles must be the outer particles. We can simply map the particles to the place on the screen with perspective projection and set the depth if the distance from the particle to the camera is less than the current value.
 
 \subsubsection{Filtered Depth Buffer}
 Now we've already got the depth information, but it is not enough. Since particles are discrete, the simple representation by spheres of the liquid surface will lead to an unrealistic blobby appearance. We need to smoothen and flatten the surface.
 
-The filter method will be discussed in details in the implementation section.
+The filter method will be discussed in detail in the implementation section.
 
 \subsubsection{Normal Buffer}
 With the smoothened normal buffer, we can generate the normal buffer easily. Just consider the change in value from up-down and left-right direction, we can calculate the normal of each screen pixel. The normal buffer is used for calculating the reflection of the frontmost surface.
@@ -409,7 +409,7 @@ Note the set of empty voxels as $\mathcal{E}_h$ and level-set $\mathcal L_k:=\{V
   \label{filters}
 \end{figure*}
 
-We have already discussed about the necessarity of smoothening filters in the rendering pipeline. A naive approach is to use Gaussian blur filter. This filter smoothen the values by weighted average of the pixel and its surrounding ones. However, we still want to preserve the silhouette edges in depth image so that particles don't get blended into background surfaces~\cite{screennvidia}. The soultion is to use biteral filters:
+We have already discussed the necessity of smoothening filters in the rendering pipeline. A naive approach is to use Gaussian blur filter. This filter smoothen the values by weighted average of the pixel and its surrounding ones. However, we still want to preserve the silhouette edges in the depth image so that particles don't get blended into background surfaces~\cite{screennvidia}. The solution is to use bilateral filters:
 \begin{equation}
   I^\text{filtered}(x) = \frac{1}{W_p} \sum_{x_i \in \Omega} I(x_i)f_r(\|I(x_i) - I(x)\|)g_s(\|x_i - x\|),
 \end{equation}
@@ -427,7 +427,7 @@ where
   \item $g_{s}$ is the spatial (or domain) kernel for smoothing differences in coordinates (this function can be a Gaussian function).
 \end{itemize}
 
-Figure~\ref{filters} shows the result of each filters. From the figure, we can clearly find that particles are blended into background surfaces with Gaussian blue filter, while the silhouette edges are preserved with bilateral filter.
+Figure~\ref{filters} shows the result of each filter. From the figure, we can clearly find that particles are blended into background surfaces with Gaussian blue filter, while the silhouette edges are preserved with bilateral filter.
 
 \section{Result}
 \begin{figure*}[htb]
@@ -512,7 +512,7 @@ The work includes the following tasks:
   \item [Task 2.] Basic screen-space fluid rendering.
   \item [Task 3.] LNM.
   \begin{enumerate}
-    \item [Task 3.1.] LNM algorithm implement.
+    \item [Task 3.1.] LNM algorithm implementation.
     \item [Task 3.2.] LNM's follow-up rendering.
   \end{enumerate}
 \end{enumerate}
